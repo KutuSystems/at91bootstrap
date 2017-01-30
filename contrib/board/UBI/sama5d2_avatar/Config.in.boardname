@@ -1,0 +1,2 @@
+config CONFIG_BOARDNAME
+	default "sama5d2_avatar" if CONFIG_SAMA5D2_AVATAR

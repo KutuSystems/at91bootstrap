@@ -45,4 +45,8 @@
 #include "sama5d3_acqua.h"
 #endif
 
+#ifdef CONFIG_SAMA5D2_AVATAR
+#include "sama5d2_avatar.h"
+#endif
+
 #endif
