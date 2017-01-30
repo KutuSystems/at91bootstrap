@@ -72,6 +72,63 @@ static void initialize_dbgu(void)
 		usart_init(BAUDRATE(MASTER_CLOCK, baudrate));
 }
 
+#if defined(CONFIG_LPDDR2)
+
+
+#define NS2CYCLES(ns) ((((ns) * (MASTER_CLOCK / 1000)) + 999) / 1000)
+static void lpddr2_reg_config(struct ddramc_register *ddramc_config)
+{
+	ddramc_config->mdr = (AT91C_DDRC2_DBW_32_BITS |
+			      AT91C_DDRC2_MD_LPDDR2_SDRAM);
+
+	ddramc_config->cr = (AT91C_DDRC2_NC_DDR10_SDR9 |
+			     AT91C_DDRC2_NR_14 |
+			     AT91C_DDRC2_CAS_3 |
+			     AT91C_DDRC2_ZQ_SHORT |
+			     AT91C_DDRC2_NB_BANKS_8 |
+			     AT91C_DDRC2_UNAL_SUPPORTED);
+
+	ddramc_config->lpddr2_lpr = AT91C_LPDDRC2_DS(0x03);
+
+	/*
+	 * The MT42128M32 refresh window: 32ms
+	 * Required number of REFRESH commands(MIN): 8192
+	 * (32ms / 8192) * 120MHz = 468 i.e. 0x1d4
+	 */
+	ddramc_config->rtr = 0x1d4;
+	ddramc_config->tim_calr = 12;
+
+	ddramc_config->t0pr = (AT91C_DDRC2_TRAS_(NS2CYCLES(40))
+			| AT91C_DDRC2_TRCD_(NS2CYCLES(15))
+			| AT91C_DDRC2_TWR_(NS2CYCLES(15))
+			| AT91C_DDRC2_TRC_(NS2CYCLES(60))	// Setup for all banks
+			| AT91C_DDRC2_TRP_(NS2CYCLES(15))
+			| AT91C_DDRC2_TRRD_(NS2CYCLES(11))
+			| AT91C_DDRC2_TWTR_(NS2CYCLES(8))
+			| AT91C_DDRC2_TMRD_(2));
+
+	ddramc_config->t1pr = (AT91C_DDRC2_TXP_(NS2CYCLES(8))
+			| AT91C_DDRC2_TXSNR_(NS2CYCLES(130+10))
+			| AT91C_DDRC2_TRFC_(NS2CYCLES(130)));
+
+	ddramc_config->t2pr = (AT91C_DDRC2_TFAW_(NS2CYCLES(50))
+			| AT91C_DDRC2_TRTP_(NS2CYCLES(8)));
+}
+
+static void lpddr2_init(void)
+{
+	struct ddramc_register ddramc_reg;
+
+	lpddr2_reg_config(&ddramc_reg);
+
+	pmc_enable_periph_clock(AT91C_ID_MPDDRC);
+	pmc_enable_system_clock(AT91C_PMC_DDR);
+
+	lpddr2_sdram_initialize(AT91C_BASE_MPDDRC,
+				AT91C_BASE_DDRCS, &ddramc_reg);
+}
+#endif      // CONFIG_LPDDR2
+
 #if defined(CONFIG_MATRIX)
 static int matrix_configure_slave(void)
 {
@@ -380,6 +437,11 @@ void hw_init(void)
 	/* Initialize MPDDR Controller */
 	ddramc_init();
 #endif
+
+#if defined(CONFIG_LPDDR2)
+	lpddr2_init();
+#endif
+
 	/* Prepare L2 cache setup */
 	l2cache_prepare();
 }
