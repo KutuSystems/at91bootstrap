@@ -51,8 +51,8 @@
 static void at91_dbgu_hw_init(void)
 {
 	const struct pio_desc dbgu_pins[] = {
-		{"RXD0", CONFIG_SYS_DBGU_RXD_PIN, 0, PIO_DEFAULT, PIO_PERIPH_C},
-		{"TXD0", CONFIG_SYS_DBGU_TXD_PIN, 0, PIO_DEFAULT, PIO_PERIPH_C},
+		{"URXD1", CONFIG_SYS_DBGU_RXD_PIN, 0, PIO_DEFAULT, PIO_PERIPH_A},
+		{"UTXD1", CONFIG_SYS_DBGU_TXD_PIN, 0, PIO_DEFAULT, PIO_PERIPH_A},
 		{(char *)0, 0, 0, PIO_DEFAULT, PIO_PERIPH_A},
 	};
 
@@ -62,7 +62,7 @@ static void at91_dbgu_hw_init(void)
 
 static void initialize_dbgu(void)
 {
-	unsigned int baudrate = 57600;
+	unsigned int baudrate = 115200;
 
 	at91_dbgu_hw_init();
 
