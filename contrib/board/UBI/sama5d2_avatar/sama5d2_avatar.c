@@ -401,8 +401,7 @@ static void ddramc_init(void)
 #ifdef CONFIG_HW_INIT
 void hw_init(void)
 {
-	/* Disable watchdog */
-	at91_disable_wdt();
+   int i,read_val;
 
 	/*
 	 * while coming from the ROM code, we run on PLLA @ 396 MHz / 132 MHz
@@ -430,8 +429,40 @@ void hw_init(void)
 	/* initialize the dbgu */
 	initialize_dbgu();
 
-	/* Init timer */
+   pmc_enable_periph_clock(AT91C_ID_PIOA);
+   pmc_enable_periph_clock(AT91C_ID_PIOB);
+   pmc_enable_periph_clock(AT91C_ID_PIOC);
+   pmc_enable_periph_clock(AT91C_ID_PIOD);
+
+   /* Init timer */
 	timer_init();
+
+   // configure input I/O for jumping to bootloader
+   if (pio_set_gpio_input(CONFIG_SYS_FLASH_ERASE, PIO_PULLUP))
+      dbg_info("pio_set_gpio_input failed %d\n");
+	udelay(100);
+
+   read_val = 0;
+   for (i = 0; i<10; i++) {
+      read_val += pio_get_value(CONFIG_SYS_FLASH_ERASE);
+	   udelay(100);
+   }
+
+   if (read_val == 0) {
+      // I/O is held low, so enter SAM-BA
+
+      // write to BSCR reg to use BUREG_1
+      writel(SET_BUREG_1, AT91C_BASE_BSC_CR);
+      dbg_info("\n System will reset and start SAM-BA\n");
+
+      // wait for watchdog
+      while(1);
+   } else {
+
+	   /* Disable watchdog */
+	   at91_disable_wdt();
+   }
+
 
 #if defined(CONFIG_DDR3)
 	/* Initialize MPDDR Controller */

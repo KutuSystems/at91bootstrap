@@ -228,6 +228,7 @@
 #define	AT91C_BASE_PITC		(AT91C_BASE_SYSC + 0x30)
 #define	AT91C_BASE_WDT		(AT91C_BASE_SYSC + 0x40)
 #define	AT91C_BASE_SCKCR	(AT91C_BASE_SYSC + 0x50)
+#define	AT91C_BASE_BSC_CR	(AT91C_BASE_SYSC + 0x54)
 #define	AT91C_BASE_RTCC		(AT91C_BASE_SYSC + 0xb0)
 
 #define ATMEL_BASE_SMC		(AT91C_BASE_HSMC + 0x700)
@@ -238,6 +239,10 @@
 /* AICREDIR Unlock Key */
 #define	AICREDIR_KEY		0xB6D81C4D
 
+#define	SET_BUREG_0       0x66830004
+#define	SET_BUREG_1       0x66830005
+#define	SET_BUREG_2       0x66830006
+#define	SET_BUREG_3       0x66830007
 /*
  * Matrix Slaves ID
  */
