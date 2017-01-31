@@ -34,6 +34,7 @@
 #include "gpio.h"
 #include "timer.h"
 #include "watchdog.h"
+#include "rstc.h"
 
 #include "arch/at91_pmc.h"
 #include "arch/at91_rstc.h"
@@ -453,9 +454,10 @@ void hw_init(void)
 
       // write to BSCR reg to use BUREG_1
       writel(SET_BUREG_1, AT91C_BASE_BSC_CR);
-      dbg_info("\n System will reset and start SAM-BA\n");
+      dbg_info("\n System will reset and start SAM-BA\n\n\n");
 
       // wait for watchdog
+      cpu_reset();
       while(1);
    } else {
 
