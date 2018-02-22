@@ -262,7 +262,7 @@ static void ddramc_reg_config(struct ddramc_register *ddramc_config)
 	ddramc_config->cr = (AT91C_DDRC2_NC_DDR10_SDR9
 				| AT91C_DDRC2_NR_14
 				| AT91C_DDRC2_CAS_5
-				| AT91C_DDRC2_DIS_DLL_DISABLED
+				| AT91C_DDRC2_DISABLE_DLL
 				| AT91C_DDRC2_WEAK_STRENGTH_RZQ7
 				| AT91C_DDRC2_NB_BANKS_8
 				| AT91C_DDRC2_DECOD_INTERLEAVED
@@ -272,7 +272,44 @@ static void ddramc_reg_config(struct ddramc_register *ddramc_config)
 	 * According to MT41K128M16 datasheet
 	 * Maximum fresh period: 64ms, refresh count: 8k
 	 */
-#ifdef CONFIG_BUS_SPEED_166MHZ
+#ifdef CONFIG_BUS_SPEED_116MHZ
+	/* Refresh Timer is (64ms / 8k) * 116MHz = 907(0x38b) */
+	ddramc_config->rtr = 0x38b;
+
+	/*
+	 * According to the sama5d2 datasheet and the following values:
+	 * T Sens = 0.75%/C, V Sens = 0.2%/mV, T driftrate = 1C/sec and V driftrate = 15 mV/s
+	 * Warning: note that the values T driftrate and V driftrate are dependent on
+	 * the application environment.
+	 * ZQCS period is 1.5 / ((0.75 x 1) + (0.2 x 15)) = 0.4s
+	 * If tref is 7.8us, we have: 400000 / 7.8 = 51282(0xC852)
+	 * */
+	ddramc_config->cal_mr4r = AT91C_DDRC2_COUNT_CAL(0xC852);
+
+	/* DDR3 ZQCS */
+	ddramc_config->tim_calr = AT91C_DDRC2_ZQCS(64);
+
+	/* Assume timings for 8ns min clock period */
+	ddramc_config->t0pr = (AT91C_DDRC2_TRAS_(5)
+			| AT91C_DDRC2_TRCD_(2)
+			| AT91C_DDRC2_TWR_(4)
+			| AT91C_DDRC2_TRC_(6)
+			| AT91C_DDRC2_TRP_(2)
+			| AT91C_DDRC2_TRRD_(4)
+			| AT91C_DDRC2_TWTR_(4)
+			| AT91C_DDRC2_TMRD_(4));
+
+	ddramc_config->t1pr = (AT91C_DDRC2_TRFC_(19)
+			| AT91C_DDRC2_TXSNR_(21)
+			| AT91C_DDRC2_TXSRD_(0)
+			| AT91C_DDRC2_TXP_(10));
+
+	ddramc_config->t2pr = (AT91C_DDRC2_TXARD_(0)
+			| AT91C_DDRC2_TXARDS_(0)
+			| AT91C_DDRC2_TRPA_(0)
+			| AT91C_DDRC2_TRTP_(4)
+			| AT91C_DDRC2_TFAW_(5));
+#elif CONFIG_BUS_SPEED_166MHZ
 	/* Refresh Timer is (64ms / 8k) * 166MHz = 1297(0x511) */
 	ddramc_config->rtr = 0x511;
 
@@ -329,7 +366,15 @@ static void ddramc_init(void)
 	reg &= ~AT91C_MPDDRC_RDIV;
 	reg |= AT91C_MPDDRC_RDIV_DDR2_RZQ_50;
 	reg &= ~AT91C_MPDDRC_TZQIO;
+
+	/* TZQIO field must be set to 600ns */
+#ifdef CONFIG_BUS_SPEED_116MHZ
+	reg |= AT91C_MPDDRC_TZQIO_(70);
+#elif CONFIG_BUS_SPEED_166MHZ
 	reg |= AT91C_MPDDRC_TZQIO_(100);
+#else
+#error "No CLK setting defined"
+#endif
 	writel(reg, (AT91C_BASE_MPDDRC + MPDDRC_IO_CALIBR));
 
 	writel(AT91C_MPDDRC_RD_DATA_PATH_TWO_CYCLES,
@@ -589,15 +634,6 @@ void hw_init(void)
 {
 	/* Disable watchdog */
 	at91_disable_wdt();
-
-	/*
-	 * while coming from the ROM code, we run on PLLA @ 396 MHz / 132 MHz
-	 * so we need to slow down and configure MCKR accordingly.
-	 * This is why we have a special flavor of the switching function.
-	 */
-
-	/* Switch PCK/MCK on Main Clock output */
-	pmc_cfg_mck_down(BOARD_PRESCALER_MAIN_CLOCK);
 
 	/* Configure PLLA */
 	pmc_cfg_plla(PLLA_SETTINGS);
@@ -896,51 +932,41 @@ int at91_board_act8865_set_reg_voltage(void)
 	if (act8865_check_i2c_disabled())
 		return 0;
 
-	/* Enable REG2 output 1.2V */
-	reg = REG2_1;
-	value = ACT8865_1V2;
-	ret = act8865_set_reg_voltage(reg, value);
-	if (ret) {
-		dbg_loud("ACT8865: Failed to make REG2 output 1200mV\n");
-		return -1;
-	}
-
-	/* Enable REG4 output 2.5V */
 	reg = REG4_0;
 	value = ACT8865_2V5;
 	ret = act8865_set_reg_voltage(reg, value);
-	if (ret) {
+	if (ret)
 		dbg_loud("ACT8865: Failed to make REG4 output 2500mV\n");
-		return -1;
-	}
 
 	/* Enable REG5 output 3.3V */
 	reg = REG5_0;
 	value = ACT8865_3V3;
 	ret = act8865_set_reg_voltage(reg, value);
-	if (ret) {
+	if (ret)
 		dbg_loud("ACT8865: Failed to make REG5 output 3300mV\n");
-		return -1;
-	}
 
 	/* Enable REG6 output 2.5V */
 	reg = REG6_0;
 	value = ACT8865_2V5;
 	ret = act8865_set_reg_voltage(reg, value);
-	if (ret) {
+	if (ret)
 		dbg_loud("ACT8865: Failed to make REG6 output 2500mV\n");
-		return -1;
-	}
 
 	/* Enable REG7 output 1.8V */
 	reg = REG7_0;
 	value = ACT8865_1V8;
 	ret = act8865_set_reg_voltage(reg, value);
-	if (ret) {
+	if (ret)
 		dbg_loud("ACT8865: Failed to make REG7 output 1800mV\n");
-		return -1;
-	}
 
+	/* Enable REG2 output 1.2V */
+	reg = REG2_1;
+	value = ACT8865_1V2;
+	ret = act8865_set_reg_voltage(reg, value);
+	if (ret)
+		dbg_loud("ACT8865: Failed to make REG2 output 1200mV\n");
+
+	/* Enable REG4 output 2.5V */
 	return 0;
 }
 #endif

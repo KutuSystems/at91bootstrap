@@ -238,6 +238,7 @@ static void nand_set_feature_on_die_ecc(unsigned char is_enable)
 	for (i = 0; i < 3; i++)
 		write_byte(0x00);
 
+	nand_wait_ready();
 	nand_cs_disable();
 }
 
@@ -250,7 +251,8 @@ static unsigned char nand_get_feature_on_die_ecc(void)
 
 	nand_command(CMD_GET_FEATURE);
 	nand_address(0x90);
-	udelay(100);
+	nand_wait_ready();
+	nand_command(CMD_READ_1);
 
 	for (i = 0; i < 4; i++)
 		buffer[i] = read_byte();
@@ -300,6 +302,19 @@ static int nand_init_on_die_ecc(void)
 }
 #endif /* #ifdef CONFIG_USE_ON_DIE_ECC_SUPPORT */
 
+static void nandflash_read_id(unsigned char *manf_id, unsigned char *dev_id)
+{
+	nand_cs_enable();
+
+	nand_command(CMD_READID);
+	nand_address(0x00);
+
+	*manf_id = read_byte();
+	*dev_id = read_byte();
+
+	nand_cs_disable();
+}
+
 #ifdef CONFIG_ONFI_DETECT_SUPPORT
 static unsigned short onfi_crc16(unsigned short crc,
 				unsigned char const *p,
@@ -329,8 +344,6 @@ static unsigned short onfi_crc16(unsigned short crc,
 
 #define PARAMS_OFFSET_EXT_PARAM_PAGE_LEN	12
 #define PARAMS_OFFSET_PARAMETER_PAGE		14
-#define PARAMS_OFFSET_MODEL		49
-#define PARAMS_OFFSET_JEDEC_ID		64
 #define PARAMS_OFFSET_PAGESIZE		80
 #define PARAMS_OFFSET_OOBSIZE		84
 #define PARAMS_OFFSET_BLOCKSIZE		92
@@ -483,8 +496,8 @@ static int nandflash_detect_onfi(struct nand_chip *chip)
 
 	nand_cs_disable();
 
-	manf_id = *(unsigned char *)(p + PARAMS_OFFSET_JEDEC_ID);
-	dev_id = *(unsigned char *)(p + PARAMS_OFFSET_MODEL);
+	nandflash_read_id(&manf_id, &dev_id);
+
 	dbg_info("NAND: Manufacturer ID: %x Chip ID: %x\n", manf_id, dev_id);
 	dbg_info("NAND: Page Bytes: %d, Spare Bytes: %d\n" \
 		 "NAND: ECC Correctability Bits: %d, ECC Sector Bytes: %d\n",
@@ -497,22 +510,13 @@ static int nandflash_detect_onfi(struct nand_chip *chip)
 
 static int nandflash_detect_non_onfi(struct nand_chip *chip)
 {
-	int manf_id, dev_id;
+	unsigned char manf_id, dev_id;
 	unsigned int chipid;
 	unsigned int i;
 
-	nand_cs_enable();
+	nandflash_read_id(&manf_id, &dev_id);
 
-	/* Reading device ID */
-	nand_command(CMD_READID);
-	nand_address(0x00);
-
-	manf_id  = read_byte();
-	dev_id   = read_byte();
-
-	nand_cs_disable();
-
-	chipid = (manf_id << 8) | dev_id;
+	chipid = ((unsigned int)manf_id << 8) | dev_id;
 
 	for (i = 0; i < ARRAY_SIZE(nand_ids); i++) {
 		if (chipid == nand_ids[i].chip_id)

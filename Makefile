@@ -24,7 +24,7 @@ endif
 BINDIR:=$(TOPDIR)/binaries
 
 DATE := $(shell date)
-VERSION := 3.8.7
+VERSION := 3.8.9
 REVISION :=
 SCMINFO := $(shell ($(TOPDIR)/host-utilities/setlocalversion $(TOPDIR)))
 
@@ -134,6 +134,7 @@ CARD_SUFFIX := $(strip $(subst ",,$(CONFIG_CARD_SUFFIX)))
 MEM_BANK := $(strip $(subst ",,$(CONFIG_MEM_BANK)))
 MEM_SIZE := $(strip $(subst ",,$(CONFIG_MEM_SIZE)))
 LINUX_KERNEL_ARG_STRING := $(strip $(subst ",,$(CONFIG_LINUX_KERNEL_ARG_STRING)))
+LINUX_KERNEL_ARG_STRING_FILE := $(strip $(subst ",,$(CONFIG_LINUX_KERNEL_ARG_STRING_FILE)))
 
 # Board definitions
 BOARDNAME:=$(strip $(subst ",,$(CONFIG_BOARDNAME)))
@@ -148,7 +149,6 @@ CRYSTAL:=$(strip $(subst ",,$(CONFIG_CRYSTAL)))
 
 # driver definitions
 SPI_CLK:=$(strip $(subst ",,$(CONFIG_SPI_CLK)))
-QSPI_CLK:=$(strip $(subst ",,$(CONFIG_QSPI_CLK)))
 SPI_BOOT:=$(strip $(subst ",,$(CONFIG_SPI_BOOT)))
 
 ifeq ($(REVISION),)
@@ -221,17 +221,13 @@ include	driver/driver.mk
 include	contrib/driver/driver.mk
 include	fs/src/fat.mk
 
-#$(SOBJS-y:.o=.S)
-
-SRCS:= $(COBJS-y:.o=.c)
-OBJS:= $(SOBJS-y) $(COBJS-y)
 GC_SECTIONS=--gc-sections
 
 NOSTDINC_FLAGS=-nostdinc -isystem $(shell $(CC) -print-file-name=include)
 
 CPPFLAGS=$(NOSTDINC_FLAGS) -ffunction-sections -g -Os -Wall \
 	-mno-unaligned-access \
-	-fno-stack-protector -fno-common \
+	-fno-stack-protector -fno-common -fno-builtin \
 	-I$(INCL) -Icontrib/include -Iinclude -Ifs/include \
 	-I$(TOPDIR)/config/at91bootstrap-config \
 	-DAT91BOOTSTRAP_VERSION=\"$(VERSION)$(REV)$(SCMINFO)\" -DCOMPILE_TIME="\"$(DATE)\""
@@ -248,6 +244,8 @@ $(warning WARNING: *** file: $(BOARD_LOCATE)/board.mk are not found!)
 endif
 
 include	driver/driver_cpp.mk
+
+OBJS:= $(SOBJS-y) $(COBJS-y)
 
 ifeq ($(CONFIG_ENTER_NWD), y)
 link_script:=elf32-littlearm-tz.lds
@@ -267,6 +265,8 @@ LDFLAGS+=-T $(link_script) $(GC_SECTIONS) -Ttext $(LINK_ADDR)
 ifneq ($(DATA_SECTION_ADDR),)
 LDFLAGS+=-Tdata $(DATA_SECTION_ADDR)
 endif
+
+REMOVE_SECTIONS=-R .note -R .comment -R .note.gnu.build-id
 
 gccversion := $(shell expr `$(CC) -dumpversion`)
 
@@ -310,8 +310,8 @@ $(AT91BOOTSTRAP): $(OBJS)
 	$(if $(wildcard $(BINDIR)),,mkdir -p $(BINDIR))
 	@echo "  LD        "$(BOOT_NAME).elf
 	$(Q)$(LD) $(LDFLAGS) -n -o $(BINDIR)/$(BOOT_NAME).elf $(OBJS)
-#	@$(OBJCOPY) --strip-debug --strip-unneeded $(BINDIR)/$(BOOT_NAME).elf -O binary $(BINDIR)/$(BOOT_NAME).bin
-	@$(OBJCOPY) --strip-all $(BINDIR)/$(BOOT_NAME).elf -O binary $@
+#	@$(OBJCOPY) --strip-debug --strip-unneeded $(REMOVE_SECTIONS) $(BINDIR)/$(BOOT_NAME).elf -O binary $(BINDIR)/$(BOOT_NAME).bin
+	@$(OBJCOPY) --strip-all $(REMOVE_SECTIONS) $(BINDIR)/$(BOOT_NAME).elf -O binary $@
 	@ln -sf $(BOOT_NAME).bin ${BINDIR}/${SYMLINK}
 	@ln -sf $(BOOT_NAME).bin ${BINDIR}/${SYMLINK_BOOT}
 

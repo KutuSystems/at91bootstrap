@@ -81,6 +81,7 @@ source "Config.in.u-boot"
 source "Config.in.app-image"
 
 config CONFIG_IMAGE_NAME
+	depends on CONFIG_FATFS
 	string "Image Name"
 	default "Image" if CONFIG_LINUX_IMAGE
 	default "u-boot.bin" if CONFIG_LOAD_UBOOT
@@ -310,6 +311,15 @@ config CONFIG_PM_PMIC
 	  which will be set the Power-Saving mode.
 
 endmenu
+
+config CONFIG_BACKUP_MODE
+	bool "Enable Backup Mode"
+	default n
+	help
+	  Enables "Backup mode". Starting with sama5d2, it is possible to put
+	  use DDR Self Refresh and shutdown the core. Resuming from that state
+	  requires support in the bootloader.
+
 
 menu "Board's Workaround Options"
 	depends on CONFIG_HAS_PMIC_ACT8865

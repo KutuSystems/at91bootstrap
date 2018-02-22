@@ -284,8 +284,8 @@ static int boot_image_setup(unsigned char *addr, unsigned int *entry)
 
 	dbg_loud("try zImage magic: %x is found\n", zimage_header->magic);
 	if (zimage_header->magic == LINUX_ZIMAGE_MAGIC) {
-		dbg_info("\nBooting zImage ......\n");
 		*entry = ((unsigned int)addr + zimage_header->start);
+		dbg_info("\nBooting zImage ......\n");
 		return 0;
 	}
 
@@ -302,6 +302,7 @@ static int boot_image_setup(unsigned char *addr, unsigned int *entry)
 		size = swap_uint32(uimage_header->size);
 		dest = swap_uint32(uimage_header->load);
 		src = (unsigned int)addr + sizeof(struct linux_uimage_header);
+		*entry = swap_uint32(uimage_header->entry_point);
 
 		dbg_info("Relocating kernel image, dest: %x, src: %x\n",
 				dest, src);
@@ -310,7 +311,6 @@ static int boot_image_setup(unsigned char *addr, unsigned int *entry)
 
 		dbg_info(" ...... %x bytes data transferred\n", size);
 
-		*entry = swap_uint32(uimage_header->entry_point);
 		return 0;
 	}
 
@@ -342,6 +342,13 @@ static int load_kernel_image(struct image_info *image)
 	return 0;
 }
 
+#ifdef CONFIG_OVERRIDE_CMDLINE_FROM_EXT_FILE
+__attribute__((weak)) char *board_override_cmd_line_ext(char *cmdline_args)
+{
+        return cmdline_args;
+}
+#endif
+
 __attribute__((weak)) char *board_override_cmd_line(void)
 {
 	return CMDLINE;
@@ -363,6 +370,9 @@ int load_kernel(struct image_info *image)
 	if (ret)
 		return ret;
 
+#ifdef CONFIG_OVERRIDE_CMDLINE_FROM_EXT_FILE
+	bootargs = board_override_cmd_line_ext(image->cmdline_args);
+#endif
 #if defined(CONFIG_SECURE)
 	ret = secure_check(image->dest);
 	if (ret)

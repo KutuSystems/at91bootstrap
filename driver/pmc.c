@@ -29,6 +29,7 @@
 #include "board.h"
 #include "timer.h"
 #include "arch/at91_pmc.h"
+#include "arch/at91_sfr.h"
 #include "rstc.h"
 #include "debug.h"
 #include "div.h"
@@ -48,6 +49,19 @@ void lowlevel_clock_init()
 {
 	unsigned long tmp;
 
+	/*
+	 * Switch the master clock to the slow clock without modifying other
+	 * parameters. It is assumed that ROM code set H32MXDIV, PLLADIV2,
+	 * PCK_DIV3.
+	 */
+	tmp = read_pmc(PMC_MCKR);
+	tmp &= (~AT91C_PMC_CSS);
+	tmp |= AT91C_PMC_CSS_SLOW_CLK;
+	write_pmc(PMC_MCKR, tmp);
+
+	while (!(read_pmc(PMC_SR) & AT91C_PMC_MCKRDY))
+		;
+
 #if defined(CONFIG_SAMA5D3X_CMP)
 	/*
 	 * On the sama5d3x_cmp board, a phy is not in the proper reset state
@@ -59,7 +73,7 @@ void lowlevel_clock_init()
 #if defined(AT91SAM9X5) || defined(AT91SAM9N12) || defined(SAMA5D3X) \
 	|| defined(SAMA5D4) || defined(SAMA5D2)
 	/*
-	 * Enable the 12MHz oscillator
+	 * Enable the Main Crystal Oscillator
 	 * tST_max = 2ms
 	 * Startup Time: 32768 * 2ms / 8 = 8
 	 */
@@ -75,7 +89,7 @@ void lowlevel_clock_init()
 		;
 
 #if defined(SAMA5D2)
-	/* Enable a measurement of the external oscillator */
+	/* Enable a measurement of the Main Cristal Oscillator */
 	tmp = read_pmc(PMC_MCFR);
 	tmp |= AT91C_CKGR_CCSS_XTAL_OSC;
 	tmp |= AT91C_CKGR_RCMEAS;
@@ -85,7 +99,7 @@ void lowlevel_clock_init()
 		;
 #endif
 
-	/* Switch from internal 12MHz RC to the 12MHz oscillator */
+	/* Switch from internal 12MHz RC to the Main Cristal Oscillator */
 	tmp = read_pmc(PMC_MOR);
 	tmp &= (~AT91C_CKGR_MOSCXTBY);
 	tmp &= (~AT91C_CKGR_KEY);
@@ -102,7 +116,7 @@ void lowlevel_clock_init()
 		;
 
 #if !defined(SAMA5D4) && !defined(SAMA5D2)
-	/* Disable the 12MHz RC oscillator */
+	/* Disable the 12MHz RC Oscillator */
 	tmp = read_pmc(PMC_MOR);
 	tmp &= (~AT91C_CKGR_MOSCRCEN);
 	tmp &= (~AT91C_CKGR_KEY);
@@ -112,7 +126,7 @@ void lowlevel_clock_init()
 
 #else
 	/*
-	 * Enable the 12MHz oscillator
+	 * Enable the Main Crystal Oscillator
 	 * tST_max = 2ms
 	 * Startup Time: 32768 * 2ms / 8 = 8
 	 */
@@ -126,7 +140,7 @@ void lowlevel_clock_init()
 		;
 #endif
 
-	/* After stablization, switch to Main Oscillator */
+	/* After stablization, switch to Main Clock */
 	if ((read_pmc(PMC_MCKR) & AT91C_PMC_CSS) == AT91C_PMC_CSS_SLOW_CLK) {
 		tmp = read_pmc(PMC_MCKR);
 		tmp &= (~(0x1 << 13));
@@ -223,64 +237,6 @@ int pmc_cfg_mck(unsigned int pmc_mckr)
 	return 0;
 }
 
-int pmc_cfg_mck_down(unsigned int pmc_mckr)
-{
-	unsigned int tmp;
-
-	/*
-	 * Program the CSS field in the PMC_MCKR register,
-	 * wait for MCKRDY bit to be set in the PMC_SR register
-	 */
-	tmp = read_pmc(PMC_MCKR);
-	tmp &= (~(0x1 << 13));
-	tmp &= (~AT91C_PMC_CSS);
-	tmp |= (pmc_mckr & AT91C_PMC_CSS);
-	write_pmc(PMC_MCKR, tmp);
-
-	while (!(read_pmc(PMC_SR) & AT91C_PMC_MCKRDY))
-		;
-
-	/*
-	 * Program the H32MXDIV field in the PMC_MCKR register
-	 */
-	tmp = read_pmc(PMC_MCKR);
-	tmp &= (~AT91C_PMC_H32MXDIV);
-	tmp |= (pmc_mckr & AT91C_PMC_H32MXDIV);
-	write_pmc(PMC_MCKR, tmp);
-
-	/*
-	 * Program the PLLADIV2 field in the PMC_MCKR register
-	 */
-	tmp = read_pmc(PMC_MCKR);
-	tmp &= (~AT91C_PMC_PLLADIV2);
-	tmp |= (pmc_mckr & AT91C_PMC_PLLADIV2);
-	write_pmc(PMC_MCKR, tmp);
-
-	/*
-	 * Program the MDIV field in the PMC_MCKR register
-	 */
-	tmp = read_pmc(PMC_MCKR);
-	tmp &= (~AT91C_PMC_MDIV);
-	tmp |= (pmc_mckr & AT91C_PMC_MDIV);
-	write_pmc(PMC_MCKR, tmp);
-
-	/*
-	 * Program the PRES field in the PMC_MCKR register
-	 */
-	tmp = read_pmc(PMC_MCKR);
-#if defined(AT91SAM9X5) || defined(AT91SAM9N12) || defined(SAMA5D3X) \
-	|| defined(SAMA5D4) || defined(SAMA5D2)
-	tmp &= (~AT91C_PMC_ALT_PRES);
-	tmp |= (pmc_mckr & AT91C_PMC_ALT_PRES);
-#else
-	tmp &= (~AT91C_PMC_PRES);
-	tmp |= (pmc_mckr & AT91C_PMC_PRES);
-#endif
-	write_pmc(PMC_MCKR, tmp);
-
-	return 0;
-}
-
 int pmc_cfg_pck(unsigned char x, unsigned int clk_sel, unsigned int prescaler)
 {
 	write_pmc(PMC_PCKR + x * 4, clk_sel | prescaler);
@@ -355,16 +311,97 @@ int pmc_sam9x5_enable_periph_clk(unsigned int periph_id)
 	return 0;
 }
 
+#if defined(AT91C_BASE_SFR) && !defined(SAMA5D4)
+static unsigned long pmc_get_main_clock(void)
+{
+	unsigned long main_clock;
+
+#ifdef BOARD_MAINOSC
+	main_clock = BOARD_MAINOSC;
+#else
+	unsigned int tmp;
+
+	do {
+		tmp = read_pmc(PMC_MCFR);
+	} while (!(tmp & AT91C_CKGR_MAINRDY));
+
+	tmp &= AT91C_CKGR_MAINF;
+	main_clock = tmp * (CONFIG_SYS_AT91_SLOW_CLOCK / 16);
+#endif
+	return main_clock;
+}
+
+static int clock_freq_in_range(unsigned long freq,
+			     unsigned long norm, unsigned int delta)
+{
+	if (delta > norm)
+		return 0;
+
+	if ((freq >= (norm - delta)) && (freq <= (norm + delta)))
+		return 1;
+	else
+		return 0;
+}
+
+static int pmc_configure_utmi_ref_clk(void)
+{
+	unsigned long main_clock;
+	unsigned int utmi_ref_clk_freq, tmp;
+	unsigned long delta = 50000;
+
+	/*
+	 * If mainck rate is different from 12 MHz, we have to configure
+	 * the FREQ field of the SFR_UTMICKTRIM register to generate properly
+	 * the utmi clock.
+	 */
+	main_clock = pmc_get_main_clock();
+	if (clock_freq_in_range(main_clock, 12000000, delta)) {
+		utmi_ref_clk_freq = 0;
+	} else if (clock_freq_in_range(main_clock, 16000000, delta)) {
+		utmi_ref_clk_freq = 1;
+	} else if (clock_freq_in_range(main_clock, 24000000, delta)) {
+		utmi_ref_clk_freq = 2;
+	/*
+	 * Not supported on SAMA5D2 but it's not an issue since MAINCK
+	 * maximum value is 24 MHz.
+	 */
+	} else if (clock_freq_in_range(main_clock, 48000000, delta)) {
+		utmi_ref_clk_freq = 3;
+	} else {
+		dbg_info("The MAINCK frequency: %d\n", main_clock);
+		return -1;
+	}
+
+	tmp = readl(SFR_UTMICKTRIM + AT91C_BASE_SFR);
+	tmp &= ~AT91C_UTMICKTRIM_FREQ;
+	tmp |= utmi_ref_clk_freq;
+	writel(tmp, SFR_UTMICKTRIM + AT91C_BASE_SFR);
+
+	return 0;
+}
+#else
+static int pmc_configure_utmi_ref_clk(void)
+{
+	return 0;
+}
+#endif
+
 int pmc_uckr_clk(unsigned int is_on)
 {
 	unsigned int uckr = read_pmc(PMC_UCKR);
 	unsigned int sr;
+	int ret;
 
 	if (is_on) {
-		uckr |= (AT91C_CKGR_UPLLCOUNT_DEFAULT | AT91C_CKGR_UPLLEN_ENABLED);
+		ret = pmc_configure_utmi_ref_clk();
+		if (ret)
+			return ret;
+
+		uckr |= (AT91C_CKGR_UPLLCOUNT_DEFAULT |
+			 AT91C_CKGR_UPLLEN | AT91C_CKGR_BIASEN);
 		sr = AT91C_PMC_LOCKU;
 	} else {
-		uckr &= ~AT91C_CKGR_UPLLEN_ENABLED;
+		uckr &= ~(AT91C_CKGR_UPLLEN | AT91C_CKGR_BIASEN);
 		sr = 0;
 	}
 
@@ -390,7 +427,7 @@ int pmc_enable_periph_generated_clk(unsigned int periph_id,
 	if (div > 0xff)
 		return -1;
 
-	if (!(read_pmc(PMC_UCKR) & AT91C_CKGR_UPLLEN_ENABLED))
+	if (!(read_pmc(PMC_SR) & AT91C_PMC_LOCKU))
 		pmc_uckr_clk(1);
 
 	write_pmc(PMC_PCR, periph_id);

@@ -28,6 +28,8 @@
 #ifndef __PMC_H__
 #define __PMC_H__
 
+#define CONFIG_SYS_AT91_SLOW_CLOCK	32768
+
 /* Generated clock source selection */
 #define GCK_CSS_SLOW_CLK	0x00
 #define GCK_CSS_MAIN_CLK	0x01
@@ -39,7 +41,6 @@
 extern void pmc_init_pll(unsigned int pmc_pllicpr);
 extern int pmc_cfg_plla(unsigned int pmc_pllar);
 extern int pmc_cfg_mck(unsigned int pmc_mckr);
-extern int pmc_cfg_mck_down(unsigned int pmc_mckr);
 extern int pmc_cfg_pck(unsigned char x,
 			unsigned int clk_sel,
 			unsigned int prescaler);

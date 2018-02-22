@@ -88,12 +88,16 @@
 #include "sama5d4_xplained.h"
 #endif
 
-#ifdef CONFIG_SAMA5D2_PTC
-#include "sama5d2_ptc.h"
+#ifdef CONFIG_SAMA5D2_PTC_EK
+#include "sama5d2_ptc_ek.h"
 #endif
 
 #ifdef CONFIG_SAMA5D2_XPLAINED
 #include "sama5d2_xplained.h"
+#endif
+
+#ifdef CONFIG_SAMA5D27_SOM1_EK
+#include "sama5d27_som1_ek.h"
 #endif
 
 #include "contrib_board.h"
@@ -111,6 +115,7 @@ extern void at91_qspi_hw_init(void);
 
 extern void at91_mci0_hw_init(void);
 extern void at91_mci1_hw_init(void);
+extern void at91_mci2_hw_init(void);
 
 extern void at91_sdhc_hw_init(void);
 
