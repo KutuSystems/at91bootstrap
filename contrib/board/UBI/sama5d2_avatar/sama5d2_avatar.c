@@ -411,7 +411,7 @@ void hw_init(void)
 	 */
 
 	/* Switch PCK/MCK clock source to the main clock */
-	pmc_cfg_mck_down(BOARD_PRESCALER_MAIN_CLOCK);
+	//pmc_cfg_mck_down(BOARD_PRESCALER_MAIN_CLOCK);
 
 	/* Configure PLLA */
 	pmc_cfg_plla(PLLA_SETTINGS);
